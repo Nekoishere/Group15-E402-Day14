@@ -92,3 +92,15 @@ Vì vậy tôi chọn cách:
 - call-level records để debug sâu khi cần.
 
 Nhờ đó phần Performance (Async) của nhóm không chỉ "nói là nhanh" mà có số liệu định lượng rõ ràng để bảo vệ trước rubric.
+
+---
+
+## 4. Đánh giá kết quả benchmark thực tế
+
+Từ lần benchmark hiện tại, tôi rút ra 3 kết luận vận hành quan trọng:
+
+- **V2 tốt hơn rõ rệt ở Generation**: `Avg Judge Score` tăng từ `2.8636` lên `3.7045`, còn `Pass Rate` tăng từ `66.67%` lên `81.82%`. Điều này xác nhận giả thuyết ban đầu của tôi là prompt optimization và cấu trúc trả lời có tác dụng thật.
+- **Retrieval mới là bottleneck hệ thống**: Dù V2 mạnh hơn ở khâu sinh câu trả lời, `Hit Rate` của cả V1 và V2 đều chỉ đạt `25.0%`. Điều đó cho thấy nút nghẽn không nằm ở async runner hay generation prompt, mà nằm ở chunking/retrieval design.
+- **Hiệu năng tốt nhưng chưa đủ để release nếu chất lượng nền chưa đạt**: Một pipeline có thể chạy nhanh, có cost report đẹp, nhưng nếu `Hit Rate` còn dưới ngưỡng và cost tăng gần `70%` thì hệ thống vẫn phải `ROLLBACK`. Đây là điểm rất quan trọng trong AI Engineering: performance optimization không thể thay thế correctness ở tầng dữ liệu.
+
+Vì vậy, nếu nhìn dưới góc độ cá nhân của tôi phụ trách phần Performance, thành công lớn nhất không chỉ là làm benchmark chạy song song hơn, mà là giúp nhóm **đo được rất rõ**: V2 đang tốt lên ở đâu, đang fail ở đâu, và fail vì nguyên nhân nào. Không có lớp observability này thì nhóm sẽ rất dễ tối ưu sai chỗ.
