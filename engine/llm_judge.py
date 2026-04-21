@@ -97,26 +97,47 @@ class CostTracker:
             "latency_ms": round(latency_ms, 1),
         })
 
-    def summary(self) -> Dict:
+    def summary(self, eval_count: int = None) -> Dict:
         total_cost = sum(r["cost_usd"] for r in self._records)
         total_input = sum(r["input_tokens"] for r in self._records)
         total_output = sum(r["output_tokens"] for r in self._records)
+        total_latency_ms = sum(r["latency_ms"] for r in self._records)
         per_model: Dict[str, Dict] = {}
         for r in self._records:
             m = r["model"]
             if m not in per_model:
-                per_model[m] = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}
+                per_model[m] = {
+                    "calls": 0,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "cost_usd": 0.0,
+                    "latency_ms_total": 0.0,
+                }
             per_model[m]["calls"] += 1
             per_model[m]["input_tokens"] += r["input_tokens"]
             per_model[m]["output_tokens"] += r["output_tokens"]
             per_model[m]["cost_usd"] += r["cost_usd"]
+            per_model[m]["latency_ms_total"] += r["latency_ms"]
+
+        for stats in per_model.values():
+            calls = max(stats["calls"], 1)
+            stats["cost_usd"] = round(stats["cost_usd"], 6)
+            stats["avg_input_tokens"] = round(stats["input_tokens"] / calls, 2)
+            stats["avg_output_tokens"] = round(stats["output_tokens"] / calls, 2)
+            stats["avg_latency_ms"] = round(stats["latency_ms_total"] / calls, 1)
+            stats["latency_ms_total"] = round(stats["latency_ms_total"], 1)
+
+        effective_eval_count = eval_count if eval_count is not None else len(self._records)
         return {
             "total_calls": len(self._records),
             "total_input_tokens": total_input,
             "total_output_tokens": total_output,
+            "total_tokens": total_input + total_output,
             "total_cost_usd": round(total_cost, 6),
-            "cost_per_eval_usd": round(total_cost / max(len(self._records), 1), 6),
+            "cost_per_eval_usd": round(total_cost / max(effective_eval_count, 1), 6),
+            "avg_latency_ms_per_call": round(total_latency_ms / max(len(self._records), 1), 1),
             "per_model": per_model,
+            "records": list(self._records),
         }
 
 
@@ -407,9 +428,9 @@ class LLMJudge:
         self._batch_scores_b.clear()
 
     @staticmethod
-    def get_cost_summary() -> Dict:
+    def get_cost_summary(eval_count: int = None) -> Dict:
         """Return cost and token usage summary for the entire run."""
-        return _cost_tracker.summary()
+        return _cost_tracker.summary(eval_count=eval_count)
 
     @classmethod
     def reset_cost_tracker(cls):

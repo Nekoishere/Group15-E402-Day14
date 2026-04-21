@@ -25,6 +25,10 @@ RETRIEVAL_DISTANCE_THRESHOLD = 0.75  # higher = less relevant; filter out if dis
 # Conversation memory window (last N messages sent to API)
 MEMORY_WINDOW = 10
 
+# Benchmark concurrency controls
+RETRIEVAL_EVAL_CONCURRENCY = int(os.getenv("RETRIEVAL_EVAL_CONCURRENCY", "10"))
+BENCHMARK_MAX_CONCURRENCY = int(os.getenv("BENCHMARK_MAX_CONCURRENCY", "10"))
+
 # ChromaDB collection name
 CHROMA_COLLECTION = "vinlex_regulations"
 
