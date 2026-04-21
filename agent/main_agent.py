@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
 
@@ -12,9 +12,16 @@ load_dotenv()
 class MainAgent:
     """Day 14 benchmark wrapper around the Day 06 VinLex runtime."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        generation_temperature: Optional[float] = None,
+        prompt_addon: Optional[str] = None,
+    ):
         self.name = "VinLex-Day14"
-        self._chatbot = VinLexChatbot()
+        self._chatbot = VinLexChatbot(
+            generation_temperature=generation_temperature,
+            prompt_addon=prompt_addon,
+        )
 
     async def query(self, question: str) -> Dict[str, Any]:
         """Run the synchronous Day 06 chatbot in a worker thread."""
@@ -59,6 +66,32 @@ class MainAgent:
                     "error": str(exc),
                 },
             }
+
+
+_V2_PROMPT_ADDON = """\
+## V2 Enhancement: Structured & Comprehensive Responses
+- Provide well-structured answers using markdown: numbered steps for procedures, \
+bullet points for requirements.
+- Include EVERY specific detail (deadlines, GPA thresholds, credit counts) from \
+the retrieved documents — do not summarise away numbers.
+- Explicitly cite each factual claim: "According to [document name], ..."
+- If the retrieved documents cover multiple aspects of the question, address each one."""
+
+
+class MainAgentV2(MainAgent):
+    """Optimized agent (V2): temperature=0 generation + structured-response prompt.
+
+    V2 hypothesis: lower temperature and an explicit formatting/citation instruction
+    produce more complete, accurate answers that score higher on the Multi-Judge.
+    This is what the regression test validates.
+    """
+
+    def __init__(self):
+        super().__init__(
+            generation_temperature=0.0,
+            prompt_addon=_V2_PROMPT_ADDON,
+        )
+        self.name = "VinLex-Day14-V2"
 
 
 if __name__ == "__main__":

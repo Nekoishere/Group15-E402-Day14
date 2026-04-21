@@ -6,7 +6,7 @@ import time
 from engine.runner import BenchmarkRunner
 from engine.retrieval_eval import RetrievalEvaluator
 from engine.llm_judge import LLMJudge
-from agent.main_agent import MainAgent
+from agent.main_agent import MainAgent, MainAgentV2
 
 
 async def run_benchmark_with_results(agent_version: str, dataset: list, agent, retrieval_results: dict):
@@ -17,7 +17,7 @@ async def run_benchmark_with_results(agent_version: str, dataset: list, agent, r
         print("❌ Dataset rỗng.")
         return None, None
 
-    judge = LLMJudge(model="gpt-4o-mini")
+    judge = LLMJudge()
     evaluator = _make_evaluator(retrieval_results)
 
     runner = BenchmarkRunner(agent, evaluator, judge)
@@ -29,6 +29,9 @@ async def run_benchmark_with_results(agent_version: str, dataset: list, agent, r
     # Aggregate metrics — kết hợp retrieval thật + judge thật
     avg_score = sum(r["judge"]["final_score"] for r in results) / total
     avg_agreement = sum(r["judge"]["agreement_rate"] for r in results) / total
+
+    # Cost from the shared tracker (caller resets before each run)
+    cost_info = LLMJudge.get_cost_summary()
 
     summary = {
         "metadata": {
@@ -47,9 +50,11 @@ async def run_benchmark_with_results(agent_version: str, dataset: list, agent, r
             "mrr": retrieval_results.get("avg_mrr", 0),
             "retrieval_total_evaluated": retrieval_results.get("total_evaluated", 0),
             "retrieval_zero_hit_count": retrieval_results.get("zero_hit_count", 0),
-            # Cost tracking
-            "total_cost_usd": sum(r.get("cost_usd", 0) for r in results),
-            "total_tokens": sum(r.get("tokens_used", 0) for r in results),
+            # Cost tracking (from LLMJudge cost tracker)
+            "total_cost_usd": round(cost_info["total_cost_usd"], 6),
+            "total_tokens": cost_info["total_input_tokens"] + cost_info["total_output_tokens"],
+            "cost_per_eval_usd": round(cost_info["cost_per_eval_usd"], 6),
+            "cost_breakdown": cost_info["per_model"],
         },
     }
     return results, summary
@@ -85,13 +90,14 @@ async def main():
         dataset = [json.loads(line) for line in f if line.strip()]
     print(f"📦 Loaded {len(dataset)} test cases")
 
-    # 2. Khởi tạo agent
-    agent = MainAgent()
+    # 2. Khởi tạo agents — V1 là baseline, V2 là bản tối ưu
+    agent_v1 = MainAgent()
+    agent_v2 = MainAgentV2()
 
-    # 3. Chạy Retrieval Evaluation TRƯỚC (một lần duy nhất, dùng lại cho V1 & V2)
+    # 3. Chạy Retrieval Evaluation TRƯỚC (dùng V1 agent — retrieval config giống nhau)
     print("\n🔍 Đang chạy Retrieval Evaluation (Hit Rate & MRR)...")
     retrieval_evaluator = RetrievalEvaluator()
-    retrieval_results = await retrieval_evaluator.evaluate_batch(dataset, agent)
+    retrieval_results = await retrieval_evaluator.evaluate_batch(dataset, agent_v1)
 
     hit = retrieval_results["avg_hit_rate"]
     mrr = retrieval_results["avg_mrr"]
@@ -101,51 +107,96 @@ async def main():
     print(f"   Zero-Hit (hallucination risk): {zero_hit} cases ({zero_hit/n*100:.1f}%)")
     print(f"   By difficulty: {retrieval_results.get('difficulty_breakdown', {})}")
 
-    # 4. Chạy Benchmark V1 (baseline)
+    # 4. Chạy Benchmark V1 (baseline — temperature mặc định, prompt gốc)
+    print(f"\n🏃 Running V1 benchmark ({agent_v1.name})...")
+    LLMJudge.reset_cost_tracker()
     v1_results, v1_summary = await run_benchmark_with_results(
-        "Agent_V1_Base", dataset, agent, retrieval_results
+        "Agent_V1_Base", dataset, agent_v1, retrieval_results
     )
 
-    # 5. Chạy Benchmark V2 (optimized — sử dụng cùng agent để demo regression logic)
-    # Trong thực tế: đây là phiên bản agent mới hơn
+    # 5. Chạy Benchmark V2 (optimized — temperature=0, structured-response prompt)
+    print(f"\n🏃 Running V2 benchmark ({agent_v2.name})...")
+    LLMJudge.reset_cost_tracker()
     v2_results, v2_summary = await run_benchmark_with_results(
-        "Agent_V2_Optimized", dataset, agent, retrieval_results
+        "Agent_V2_Optimized", dataset, agent_v2, retrieval_results
     )
 
     if not v1_summary or not v2_summary:
         print("❌ Benchmark thất bại.")
         return
 
-    # 6. Regression Analysis
+    # 6. Regression Analysis — Delta trên mọi chiều quan trọng
     print("\n📊 --- KẾT QUẢ SO SÁNH (REGRESSION) ---")
-    delta_score = v2_summary["metrics"]["avg_score"] - v1_summary["metrics"]["avg_score"]
-    delta_hit = v2_summary["metrics"]["hit_rate"] - v1_summary["metrics"]["hit_rate"]
+    delta_score   = v2_summary["metrics"]["avg_score"]  - v1_summary["metrics"]["avg_score"]
+    delta_pass    = v2_summary["metrics"]["pass_rate"]   - v1_summary["metrics"]["pass_rate"]
+    delta_agree   = v2_summary["metrics"]["agreement_rate"] - v1_summary["metrics"]["agreement_rate"]
+    cost_v1       = v1_summary["metrics"]["total_cost_usd"]
+    cost_v2       = v2_summary["metrics"]["total_cost_usd"]
+    delta_cost    = cost_v2 - cost_v1
 
-    print(f"V1 | Score: {v1_summary['metrics']['avg_score']:.2f} | Hit Rate: {v1_summary['metrics']['hit_rate']*100:.1f}%")
-    print(f"V2 | Score: {v2_summary['metrics']['avg_score']:.2f} | Hit Rate: {v2_summary['metrics']['hit_rate']*100:.1f}%")
-    print(f"Δ Score: {'+' if delta_score >= 0 else ''}{delta_score:.3f}")
-    print(f"Δ Hit Rate: {'+' if delta_hit >= 0 else ''}{delta_hit*100:.1f}%")
+    def _sign(x): return "+" if x >= 0 else ""
+
+    print(f"{'Metric':<22} {'V1':>8} {'V2':>8} {'Delta':>10}")
+    print("-" * 52)
+    print(f"{'Avg Judge Score':<22} {v1_summary['metrics']['avg_score']:>8.4f} {v2_summary['metrics']['avg_score']:>8.4f} {_sign(delta_score)}{delta_score:>9.4f}")
+    print(f"{'Pass Rate':<22} {v1_summary['metrics']['pass_rate']:>8.4f} {v2_summary['metrics']['pass_rate']:>8.4f} {_sign(delta_pass)}{delta_pass:>9.4f}")
+    print(f"{'Agreement Rate':<22} {v1_summary['metrics']['agreement_rate']:>8.4f} {v2_summary['metrics']['agreement_rate']:>8.4f} {_sign(delta_agree)}{delta_agree:>9.4f}")
+    print(f"{'Hit Rate (shared)':<22} {v1_summary['metrics']['hit_rate']:>8.4f} {v2_summary['metrics']['hit_rate']:>8.4f} {'N/A':>10}")
+    print(f"{'Cost (USD)':<22} ${cost_v1:>7.4f} ${cost_v2:>7.4f} {_sign(delta_cost)}${abs(delta_cost):.4f}")
 
     # Retrieval ↔ Answer Quality Correlation Analysis
     _print_correlation_analysis(retrieval_results, v2_results)
 
-    # 7. Release Gate
-    SCORE_THRESHOLD = 3.5
-    HIT_RATE_THRESHOLD = 0.5
+    # 7. Release Gate — Quyết định Release hay Rollback tự động
+    SCORE_THRESHOLD     = 3.5
+    HIT_RATE_THRESHOLD  = 0.5
+    DELTA_SCORE_MIN     = 0.0   # V2 không được tệ hơn V1
+    COST_INCREASE_MAX   = 0.10  # Không cho phép tăng chi phí >10%
 
-    decision = (
-        v2_summary["metrics"]["avg_score"] >= SCORE_THRESHOLD
-        and v2_summary["metrics"]["hit_rate"] >= HIT_RATE_THRESHOLD
-        and delta_score >= 0
-    )
+    score_ok     = v2_summary["metrics"]["avg_score"] >= SCORE_THRESHOLD
+    hit_rate_ok  = v2_summary["metrics"]["hit_rate"]  >= HIT_RATE_THRESHOLD
+    delta_ok     = delta_score >= DELTA_SCORE_MIN
+    cost_ok      = cost_v1 == 0 or (delta_cost / max(cost_v1, 1e-9)) <= COST_INCREASE_MAX
 
-    print(f"\n{'✅ QUYẾT ĐỊNH: APPROVE RELEASE' if decision else '❌ QUYẾT ĐỊNH: BLOCK RELEASE (ROLLBACK)'}")
+    decision = score_ok and hit_rate_ok and delta_ok and cost_ok
+
+    gate_reasons = []
+    if not score_ok:
+        gate_reasons.append(f"avg_score {v2_summary['metrics']['avg_score']:.2f} < threshold {SCORE_THRESHOLD}")
+    if not hit_rate_ok:
+        gate_reasons.append(f"hit_rate {v2_summary['metrics']['hit_rate']:.2%} < threshold {HIT_RATE_THRESHOLD:.0%}")
+    if not delta_ok:
+        gate_reasons.append(f"delta_score {delta_score:+.4f} < {DELTA_SCORE_MIN} (regression detected)")
+    if not cost_ok:
+        gate_reasons.append(f"cost increase {delta_cost/cost_v1:.0%} > {COST_INCREASE_MAX:.0%} budget")
+
+    decision_str = "APPROVE" if decision else "ROLLBACK"
+    print(f"\n{'✅' if decision else '❌'} RELEASE GATE DECISION: {decision_str}")
+    if gate_reasons:
+        print("   Blocking reasons:")
+        for r in gate_reasons:
+            print(f"     • {r}")
+
     v2_summary["regression"] = {
-        "v1_score": v1_summary["metrics"]["avg_score"],
-        "v2_score": v2_summary["metrics"]["avg_score"],
-        "delta_score": round(delta_score, 4),
-        "release_decision": "APPROVE" if decision else "ROLLBACK",
-        "thresholds": {"min_score": SCORE_THRESHOLD, "min_hit_rate": HIT_RATE_THRESHOLD},
+        "v1_score":        v1_summary["metrics"]["avg_score"],
+        "v2_score":        v2_summary["metrics"]["avg_score"],
+        "delta_score":     round(delta_score, 4),
+        "v1_pass_rate":    v1_summary["metrics"]["pass_rate"],
+        "v2_pass_rate":    v2_summary["metrics"]["pass_rate"],
+        "delta_pass_rate": round(delta_pass, 4),
+        "v1_agreement":    v1_summary["metrics"]["agreement_rate"],
+        "v2_agreement":    v2_summary["metrics"]["agreement_rate"],
+        "v1_cost_usd":     cost_v1,
+        "v2_cost_usd":     cost_v2,
+        "delta_cost_usd":  round(delta_cost, 6),
+        "release_decision": decision_str,
+        "blocking_reasons": gate_reasons,
+        "thresholds": {
+            "min_score":         SCORE_THRESHOLD,
+            "min_hit_rate":      HIT_RATE_THRESHOLD,
+            "min_delta_score":   DELTA_SCORE_MIN,
+            "max_cost_increase": COST_INCREASE_MAX,
+        },
     }
 
     # 8. Save reports
@@ -158,7 +209,7 @@ async def main():
         json.dump(retrieval_results, f, ensure_ascii=False, indent=2)
 
     print("\n💾 Reports saved: reports/summary.json, benchmark_results.json, retrieval_results.json")
-    print(f"💰 Total cost: ${v2_summary['metrics']['total_cost_usd']:.4f} | Tokens: {v2_summary['metrics']['total_tokens']}")
+    print(f"💰 V1 cost: ${cost_v1:.4f}  |  V2 cost: ${cost_v2:.4f}  |  V2 tokens: {v2_summary['metrics']['total_tokens']}")
 
 
 def _print_correlation_analysis(retrieval_results: dict, benchmark_results: list):

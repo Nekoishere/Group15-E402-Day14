@@ -3,7 +3,7 @@ Multi-Judge Consensus Engine – Day 14 AI Evaluation
 =====================================================
 Architecture:
   - Judge A : GPT-4o-mini  (OpenAI)
-  - Judge B : Gemini 2.5 Flash (Google)
+  - Judge B : Gemini 2.0 Flash (Google)
 
 Features implemented:
   1. Concurrent dual-judge scoring (async)
@@ -34,7 +34,7 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY
 # ─── Pricing (USD per 1K tokens, approximate) ────────────────────────────────
 COST_TABLE = {
     "gpt-4o-mini": {"input": 0.000150, "output": 0.000600},   # per 1K tokens
-    "gemini-2.5-flash": {"input": 0.000100, "output": 0.000400},
+    "gemini-2.0-flash": {"input": 0.000100, "output": 0.000400},
 }
 
 # ─── Judge Prompt ─────────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ Respond ONLY with valid JSON, no extra text:
 TIE_BREAKER_PROMPT = """\
 Two AI judges produced conflicting scores for a chatbot evaluation:
   - Judge A (GPT-4o-mini) gave score {score_a} with reason: "{reason_a}"
-  - Judge B (Gemini-2.5-Flash) gave score {score_b} with reason: "{reason_b}"
+  - Judge B (Gemini-2.0-Flash) gave score {score_b} with reason: "{reason_b}"
 
 Difference = {diff} points. You are the Meta-Judge. Re-read the original evaluation:
 Question: {question}
@@ -174,7 +174,7 @@ async def _call_gemini_judge(
     t0 = time.perf_counter()
     try:
         model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash-preview-04-17",
+            model_name="gemini-2.0-flash",
             generation_config=genai.types.GenerationConfig(
                 temperature=0,
                 max_output_tokens=200,
@@ -188,13 +188,13 @@ async def _call_gemini_judge(
         meta = getattr(response, "usage_metadata", None)
         in_tok = getattr(meta, "prompt_token_count", 0) or 0
         out_tok = getattr(meta, "candidates_token_count", 0) or 0
-        _cost_tracker.add("gemini-2.5-flash", in_tok, out_tok, latency_ms)
+        _cost_tracker.add("gemini-2.0-flash", in_tok, out_tok, latency_ms)
 
         raw = response.text or "{}"
         parsed = json.loads(raw)
         return (
             {
-                "model": "gemini-2.5-flash",
+                "model": "gemini-2.0-flash",
                 "score": max(1, min(5, int(parsed.get("score", 3)))),
                 "reason": parsed.get("reason", ""),
                 "latency_ms": round(latency_ms, 1),
@@ -203,7 +203,7 @@ async def _call_gemini_judge(
             out_tok,
         )
     except Exception as e:
-        return {"model": "gemini-2.5-flash", "score": 3, "reason": f"Error: {e}", "latency_ms": 0}, 0, 0
+        return {"model": "gemini-2.0-flash", "score": 3, "reason": f"Error: {e}", "latency_ms": 0}, 0, 0
 
 
 async def _call_tiebreaker(
@@ -393,3 +393,9 @@ class LLMJudge:
     def get_cost_summary() -> Dict:
         """Return cost and token usage summary for the entire run."""
         return _cost_tracker.summary()
+
+    @classmethod
+    def reset_cost_tracker(cls):
+        """Reset the global cost tracker before a new benchmark run."""
+        global _cost_tracker
+        _cost_tracker = CostTracker()
