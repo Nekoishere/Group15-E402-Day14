@@ -1,0 +1,546 @@
+{
+  "v1": [
+    {
+      "test_case": "Chính sách hoàn tiền phiên bản 4 này có hiệu lực từ ngày nào?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua.",
+      "latency": 0.30150829200101725,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 2.5,
+        "agreement_rate": 0.5,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 14%"
+          },
+          "gemini-2.5-flash": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 14%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "fail"
+    },
+    {
+      "test_case": "Khách hàng cần gửi yêu cầu hoàn tiền trong vòng bao lâu kể từ thời điểm xác nhận đơn hàng?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua.",
+      "latency": 0.3017742089996318,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 3.5,
+        "agreement_rate": 0.5,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 32%"
+          },
+          "gemini-2.5-flash": {
+            "score": 4,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 32%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "pass"
+    },
+    {
+      "test_case": "Những loại sản phẩm nào không được áp dụng chính sách hoàn tiền?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua.",
+      "latency": 0.30224483299934946,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 2.0,
+        "agreement_rate": 1.0,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 2%"
+          },
+          "gemini-2.5-flash": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 2%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "fail"
+    },
+    {
+      "test_case": "Quy trình xử lý yêu cầu hoàn tiền diễn ra trong bao lâu?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua.",
+      "latency": 0.30231587500020396,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 2.0,
+        "agreement_rate": 1.0,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 15%"
+          },
+          "gemini-2.5-flash": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 15%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "fail"
+    },
+    {
+      "test_case": "Nếu khách hàng có một đơn hàng mua theo chương trình Flash Sale và sản phẩm bị lỗi do nhà sản xuất, liệu họ có được hoàn tiền theo chính sách này không và tại sao?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua.",
+      "latency": 0.30235999999968044,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 2.0,
+        "agreement_rate": 1.0,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 2%"
+          },
+          "gemini-2.5-flash": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 2%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "fail"
+    },
+    {
+      "test_case": "Chính sách hoàn tiền phiên bản 4 có hiệu lực khi nào?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua.",
+      "latency": 0.3015285830006178,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 2.5,
+        "agreement_rate": 0.5,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 14%"
+          },
+          "gemini-2.5-flash": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 14%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "fail"
+    },
+    {
+      "test_case": "Những điều kiện nào cần đáp ứng để khách hàng được yêu cầu hoàn tiền?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua.",
+      "latency": 0.30167962499945133,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 3.5,
+        "agreement_rate": 0.5,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 24%"
+          },
+          "gemini-2.5-flash": {
+            "score": 4,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 24%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "pass"
+    },
+    {
+      "test_case": "Trong bao lâu thì Finance Team sẽ xử lý yêu cầu hoàn tiền sau khi nhận được?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua.",
+      "latency": 0.30173304100026144,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 3.0,
+        "agreement_rate": 1.0,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 22%"
+          },
+          "gemini-2.5-flash": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 22%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "pass"
+    },
+    {
+      "test_case": "Nếu khách hàng muốn nhận lại số tiền hoàn nhiều hơn, họ có lựa chọn nào khác ngoài việc hoàn tiền về phương thức thanh toán gốc không?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua.",
+      "latency": 0.30178116699971724,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 3.5,
+        "agreement_rate": 0.5,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 21%"
+          },
+          "gemini-2.5-flash": {
+            "score": 4,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 21%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "pass"
+    },
+    {
+      "test_case": "Khách hàng có được yêu cầu hoàn tiền cho đơn hàng có license key nếu sản phẩm bị lỗi do nhà sản xuất và được gửi yêu cầu trong vòng 3 ngày làm việc không?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua.",
+      "latency": 0.30182562499976484,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 2.5,
+        "agreement_rate": 0.5,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 17%"
+          },
+          "gemini-2.5-flash": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 17%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "fail"
+    }
+  ],
+  "v2": [
+    {
+      "test_case": "Chính sách hoàn tiền phiên bản 4 này có hiệu lực từ ngày nào?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua. Vui lòng gửi email kèm hóa đơn.",
+      "latency": 0.3007945000008476,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 2.0,
+        "agreement_rate": 1.0,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 14%"
+          },
+          "gemini-2.5-flash": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 14%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "fail"
+    },
+    {
+      "test_case": "Khách hàng cần gửi yêu cầu hoàn tiền trong vòng bao lâu kể từ thời điểm xác nhận đơn hàng?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua. Vui lòng gửi email kèm hóa đơn.",
+      "latency": 0.3014679999996588,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 3.0,
+        "agreement_rate": 1.0,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 35%"
+          },
+          "gemini-2.5-flash": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 35%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "pass"
+    },
+    {
+      "test_case": "Những loại sản phẩm nào không được áp dụng chính sách hoàn tiền?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua. Vui lòng gửi email kèm hóa đơn.",
+      "latency": 0.3015892920011538,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 2.5,
+        "agreement_rate": 0.5,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 2%"
+          },
+          "gemini-2.5-flash": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 2%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "fail"
+    },
+    {
+      "test_case": "Quy trình xử lý yêu cầu hoàn tiền diễn ra trong bao lâu?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua. Vui lòng gửi email kèm hóa đơn.",
+      "latency": 0.30163399999946705,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 2.5,
+        "agreement_rate": 0.5,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 19%"
+          },
+          "gemini-2.5-flash": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 19%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "fail"
+    },
+    {
+      "test_case": "Nếu khách hàng có một đơn hàng mua theo chương trình Flash Sale và sản phẩm bị lỗi do nhà sản xuất, liệu họ có được hoàn tiền theo chính sách này không và tại sao?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua. Vui lòng gửi email kèm hóa đơn.",
+      "latency": 0.30166345800171257,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 2.0,
+        "agreement_rate": 1.0,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 2%"
+          },
+          "gemini-2.5-flash": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 2%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "fail"
+    },
+    {
+      "test_case": "Chính sách hoàn tiền phiên bản 4 có hiệu lực khi nào?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua. Vui lòng gửi email kèm hóa đơn.",
+      "latency": 0.3012879160014563,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 2.5,
+        "agreement_rate": 0.5,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 14%"
+          },
+          "gemini-2.5-flash": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 14%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "fail"
+    },
+    {
+      "test_case": "Những điều kiện nào cần đáp ứng để khách hàng được yêu cầu hoàn tiền?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua. Vui lòng gửi email kèm hóa đơn.",
+      "latency": 0.3013412909986073,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 3.5,
+        "agreement_rate": 0.5,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 4,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 26%"
+          },
+          "gemini-2.5-flash": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 26%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "pass"
+    },
+    {
+      "test_case": "Trong bao lâu thì Finance Team sẽ xử lý yêu cầu hoàn tiền sau khi nhận được?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua. Vui lòng gửi email kèm hóa đơn.",
+      "latency": 0.30135179100034293,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 3.5,
+        "agreement_rate": 0.5,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 4,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 22%"
+          },
+          "gemini-2.5-flash": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 22%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "pass"
+    },
+    {
+      "test_case": "Nếu khách hàng muốn nhận lại số tiền hoàn nhiều hơn, họ có lựa chọn nào khác ngoài việc hoàn tiền về phương thức thanh toán gốc không?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua. Vui lòng gửi email kèm hóa đơn.",
+      "latency": 0.30136454199964646,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 3.5,
+        "agreement_rate": 0.5,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 4,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 21%"
+          },
+          "gemini-2.5-flash": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 21%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "pass"
+    },
+    {
+      "test_case": "Khách hàng có được yêu cầu hoàn tiền cho đơn hàng có license key nếu sản phẩm bị lỗi do nhà sản xuất và được gửi yêu cầu trong vòng 3 ngày làm việc không?",
+      "agent_response": "Có, bạn có thể yêu cầu hoàn tiền trong vòng 7 ngày kể từ ngày mua. Vui lòng gửi email kèm hóa đơn.",
+      "latency": 0.30137254200053576,
+      "ragas": {
+        "hit_rate": 0.0,
+        "mrr": 0.0,
+        "faithfulness": 0.9,
+        "relevancy": 0.8
+      },
+      "judge": {
+        "final_score": 2.5,
+        "agreement_rate": 0.5,
+        "individual_results": {
+          "gemini-2.5-flash-lite": {
+            "score": 3,
+            "reasoning": "[Mock gemini-2.5-flash-lite] Word overlap: 19%"
+          },
+          "gemini-2.5-flash": {
+            "score": 2,
+            "reasoning": "[Mock gemini-2.5-flash] Word overlap: 19%"
+          }
+        },
+        "status": "consensus"
+      },
+      "status": "fail"
+    }
+  ]
+}

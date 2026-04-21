@@ -17,7 +17,7 @@ async def run_benchmark_with_results(agent_version: str, dataset: list, agent, r
         print("❌ Dataset rỗng.")
         return None, None
 
-    judge = LLMJudge(model="gpt-4o-mini")
+    judge = LLMJudge()
     evaluator = _make_evaluator(retrieval_results)
 
     runner = BenchmarkRunner(agent, evaluator, judge)

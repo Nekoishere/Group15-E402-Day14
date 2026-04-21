@@ -1,9 +1,12 @@
 import os
 from openai import OpenAI
+from dotenv import load_dotenv
 
 from config import CHAT_MODEL, FINANCIAL_KEYWORDS, MENTAL_HEALTH_KEYWORDS, OFFENSIVE_KEYWORDS, CHROMA_DIR
 from backend.vector_store import VectorStore
 from backend.rag import RAGPipeline
+
+load_dotenv()
 
 
 _FINANCIAL_RESPONSE = {

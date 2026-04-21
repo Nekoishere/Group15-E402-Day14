@@ -3,8 +3,11 @@ from typing import Any
 
 import chromadb
 from openai import OpenAI
+from dotenv import load_dotenv
 
 from config import CHROMA_COLLECTION, EMBEDDING_MODEL, TOP_K
+
+load_dotenv()
 
 
 class VectorStore:

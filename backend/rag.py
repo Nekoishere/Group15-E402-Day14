@@ -1,8 +1,11 @@
 import os
 from openai import OpenAI
+from dotenv import load_dotenv
 
 from config import CHAT_MODEL, MEMORY_WINDOW, RETRIEVAL_DISTANCE_THRESHOLD
 from backend.vector_store import VectorStore
+
+load_dotenv()
 
 
 # Base system prompt (language instruction is prepended dynamically)

@@ -3,7 +3,7 @@ Multi-Judge Consensus Engine – Day 14 AI Evaluation
 =====================================================
 Architecture:
   - Judge A : GPT-4o-mini  (OpenAI)
-  - Judge B : Gemini 2.5 Flash (Google)
+  - Judge B : GPT-4o (OpenAI)
 
 Features implemented:
   1. Concurrent dual-judge scoring (async)
@@ -19,22 +19,22 @@ import asyncio
 import json
 import os
 import time
+import warnings
 from typing import Any, Dict, List, Tuple
 
 from openai import AsyncOpenAI
-import google.generativeai as genai
+warnings.filterwarnings('ignore', category=FutureWarning)
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # ─── Client initialization ────────────────────────────────────────────────────
 _openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"))
 
 # ─── Pricing (USD per 1K tokens, approximate) ────────────────────────────────
 COST_TABLE = {
     "gpt-4o-mini": {"input": 0.000150, "output": 0.000600},   # per 1K tokens
-    "gemini-2.5-flash": {"input": 0.000100, "output": 0.000400},
+    "gpt-4o": {"input": 0.005000, "output": 0.015000},
 }
 
 # ─── Judge Prompt ─────────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ Respond ONLY with valid JSON, no extra text:
 TIE_BREAKER_PROMPT = """\
 Two AI judges produced conflicting scores for a chatbot evaluation:
   - Judge A (GPT-4o-mini) gave score {score_a} with reason: "{reason_a}"
-  - Judge B (Gemini-2.5-Flash) gave score {score_b} with reason: "{reason_b}"
+  - Judge B (GPT-4o) gave score {score_b} with reason: "{reason_b}"
 
 Difference = {diff} points. You are the Meta-Judge. Re-read the original evaluation:
 Question: {question}
@@ -127,16 +127,19 @@ _cost_tracker = CostTracker()
 # ─── Judge call helpers ───────────────────────────────────────────────────────
 
 async def _call_openai_judge(
-    question: str, answer: str, ground_truth: str, prompt_template: str = JUDGE_PROMPT
+    question: str, answer: str, ground_truth: str, prompt_template: str = JUDGE_PROMPT, model: str = "gpt-4o-mini", preformatted_prompt: str = None
 ) -> Tuple[Dict[str, Any], int, int]:
-    """Call GPT-4o-mini judge. Returns (result_dict, input_tokens, output_tokens)."""
-    prompt = prompt_template.format(
-        question=question, ground_truth=ground_truth, answer=answer
-    )
+    """Call an OpenAI judge. Returns (result_dict, input_tokens, output_tokens)."""
+    if preformatted_prompt:
+        prompt = preformatted_prompt
+    else:
+        prompt = prompt_template.format(
+            question=question, ground_truth=ground_truth, answer=answer
+        )
     t0 = time.perf_counter()
     try:
         response = await _openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
             max_tokens=200,
@@ -146,13 +149,13 @@ async def _call_openai_judge(
         usage = response.usage
         in_tok = usage.prompt_tokens if usage else 0
         out_tok = usage.completion_tokens if usage else 0
-        _cost_tracker.add("gpt-4o-mini", in_tok, out_tok, latency_ms)
+        _cost_tracker.add(model, in_tok, out_tok, latency_ms)
 
         raw = response.choices[0].message.content or "{}"
         parsed = json.loads(raw)
         return (
             {
-                "model": "gpt-4o-mini",
+                "model": model,
                 "score": max(1, min(5, int(parsed.get("score", 3)))),
                 "reason": parsed.get("reason", parsed.get("ruling", "")),
                 "latency_ms": round(latency_ms, 1),
@@ -161,49 +164,7 @@ async def _call_openai_judge(
             out_tok,
         )
     except Exception as e:
-        return {"model": "gpt-4o-mini", "score": 3, "reason": f"Error: {e}", "latency_ms": 0}, 0, 0
-
-
-async def _call_gemini_judge(
-    question: str, answer: str, ground_truth: str
-) -> Tuple[Dict[str, Any], int, int]:
-    """Call Gemini 2.5 Flash judge. Returns (result_dict, input_tokens, output_tokens)."""
-    prompt = JUDGE_PROMPT.format(
-        question=question, ground_truth=ground_truth, answer=answer
-    )
-    t0 = time.perf_counter()
-    try:
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash-preview-04-17",
-            generation_config=genai.types.GenerationConfig(
-                temperature=0,
-                max_output_tokens=200,
-                response_mime_type="application/json",
-            ),
-        )
-        response = await asyncio.to_thread(model.generate_content, prompt)
-        latency_ms = (time.perf_counter() - t0) * 1000
-
-        # Token counts from usage_metadata
-        meta = getattr(response, "usage_metadata", None)
-        in_tok = getattr(meta, "prompt_token_count", 0) or 0
-        out_tok = getattr(meta, "candidates_token_count", 0) or 0
-        _cost_tracker.add("gemini-2.5-flash", in_tok, out_tok, latency_ms)
-
-        raw = response.text or "{}"
-        parsed = json.loads(raw)
-        return (
-            {
-                "model": "gemini-2.5-flash",
-                "score": max(1, min(5, int(parsed.get("score", 3)))),
-                "reason": parsed.get("reason", ""),
-                "latency_ms": round(latency_ms, 1),
-            },
-            in_tok,
-            out_tok,
-        )
-    except Exception as e:
-        return {"model": "gemini-2.5-flash", "score": 3, "reason": f"Error: {e}", "latency_ms": 0}, 0, 0
+        return {"model": model, "score": 3, "reason": f"Error: {e}", "latency_ms": 0}, 0, 0
 
 
 async def _call_tiebreaker(
@@ -218,7 +179,7 @@ async def _call_tiebreaker(
         score_b=score_b, reason_b=reason_b,
         diff=abs(score_a - score_b),
     )
-    result, _, _ = await _call_openai_judge(question, answer, ground_truth, prompt_template=prompt)
+    result, _, _ = await _call_openai_judge(question, answer, ground_truth, preformatted_prompt=prompt, model="gpt-4o-mini")
     # The tie-breaker prompt has different keys — parse directly
     try:
         raw_result = result.get("reason", "")
@@ -270,15 +231,15 @@ async def check_position_bias(
     If scores flip significantly, the judge has positional bias.
     """
     # Round 1: good answer first
-    r1_good, _, _ = await _call_openai_judge(question, answer_good, ground_truth)
-    r1_bad, _, _ = await _call_openai_judge(question, answer_bad, ground_truth)
+    r1_good, _, _ = await _call_openai_judge(question, answer_good, ground_truth, model="gpt-4o-mini")
+    r1_bad, _, _ = await _call_openai_judge(question, answer_bad, ground_truth, model="gpt-4o-mini")
 
     # Score difference in normal order
     diff_normal = r1_good["score"] - r1_bad["score"]
 
     # Round 2: swap order — present bad answer first, then judge good
-    r2_bad, _, _ = await _call_openai_judge(question, answer_bad, ground_truth)
-    r2_good, _, _ = await _call_openai_judge(question, answer_good, ground_truth)
+    r2_bad, _, _ = await _call_openai_judge(question, answer_bad, ground_truth, model="gpt-4o-mini")
+    r2_good, _, _ = await _call_openai_judge(question, answer_good, ground_truth, model="gpt-4o-mini")
 
     diff_swapped = r2_good["score"] - r2_bad["score"]
 
@@ -302,7 +263,7 @@ async def check_position_bias(
 class LLMJudge:
     """
     Multi-Judge Consensus Engine.
-    Judges: GPT-4o-mini (Judge A) + Gemini 2.5 Flash (Judge B)
+    Judges: GPT-4o-mini (Judge A) + GPT-4o (Judge B)
 
     Conflict resolution strategy:
       |diff| == 0  → Full agreement (1.0), use shared score
@@ -331,8 +292,8 @@ class LLMJudge:
         """
         # Run both judges in parallel
         (judge_a, _, _), (judge_b, _, _) = await asyncio.gather(
-            _call_openai_judge(question, answer, ground_truth),
-            _call_gemini_judge(question, answer, ground_truth),
+            _call_openai_judge(question, answer, ground_truth, model="gpt-4o-mini"),
+            _call_openai_judge(question, answer, ground_truth, model="gpt-4o"),
         )
 
         score_a: int = judge_a["score"]
