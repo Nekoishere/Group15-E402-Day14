@@ -1,40 +1,71 @@
 import asyncio
-from typing import List, Dict
+from typing import Any, Dict
+
+from dotenv import load_dotenv
+
+from backend.chatbot import VinLexChatbot
+from config import CHAT_MODEL
+
+load_dotenv()
+
 
 class MainAgent:
-    """
-    Đây là Agent mẫu sử dụng kiến trúc RAG đơn giản.
-    Sinh viên nên thay thế phần này bằng Agent thực tế đã phát triển ở các buổi trước.
-    """
-    def __init__(self):
-        self.name = "SupportAgent-v1"
+    """Day 14 benchmark wrapper around the Day 06 VinLex runtime."""
 
-    async def query(self, question: str) -> Dict:
-        """
-        Mô phỏng quy trình RAG:
-        1. Retrieval: Tìm kiếm context liên quan.
-        2. Generation: Gọi LLM để sinh câu trả lời.
-        """
-        # Giả lập độ trễ mạng/LLM
-        await asyncio.sleep(0.5) 
-        
-        # Giả lập dữ liệu trả về
-        return {
-            "answer": f"Dựa trên tài liệu hệ thống, tôi xin trả lời câu hỏi '{question}' như sau: [Câu trả lời mẫu].",
-            "contexts": [
-                "Đoạn văn bản trích dẫn 1 dùng để trả lời...",
-                "Đoạn văn bản trích dẫn 2 dùng để trả lời..."
-            ],
-            "metadata": {
-                "model": "gpt-4o-mini",
-                "tokens_used": 150,
-                "sources": ["policy_handbook.pdf"]
+    def __init__(self):
+        self.name = "VinLex-Day14"
+        self._chatbot = VinLexChatbot()
+
+    async def query(self, question: str) -> Dict[str, Any]:
+        """Run the synchronous Day 06 chatbot in a worker thread."""
+        return await asyncio.to_thread(self._query_sync, question)
+
+    def _query_sync(self, question: str) -> Dict[str, Any]:
+        history: list[dict] = []
+
+        try:
+            result = self._chatbot.process(question, history)
+            chunks = []
+
+            if result.get("query_type") == "academic_regulation":
+                chunks = self._chatbot._rag.retrieve(question)
+
+            return {
+                "answer": result["answer"],
+                "contexts": [chunk["text"] for chunk in chunks],
+                "retrieved_ids": [chunk["id"] for chunk in chunks],
+                "metadata": {
+                    "model": CHAT_MODEL,
+                    "tokens_used": None,
+                    "sources": result.get("sources", []),
+                    "query_type": result.get("query_type"),
+                    "redirect_to_contact": result.get("redirect_to_contact", False),
+                    "suggest_counseling": result.get("suggest_counseling", False),
+                },
             }
-        }
+        except Exception as exc:
+            return {
+                "answer": (
+                    "The agent encountered an internal error while processing this question. "
+                    "Please inspect the configuration or API credentials."
+                ),
+                "contexts": [],
+                "retrieved_ids": [],
+                "metadata": {
+                    "model": CHAT_MODEL,
+                    "tokens_used": None,
+                    "sources": [],
+                    "query_type": "error",
+                    "error": str(exc),
+                },
+            }
+
 
 if __name__ == "__main__":
     agent = MainAgent()
+
     async def test():
-        resp = await agent.query("Làm thế nào để đổi mật khẩu?")
+        resp = await agent.query("How do I apply for a leave of absence?")
         print(resp)
+
     asyncio.run(test())
