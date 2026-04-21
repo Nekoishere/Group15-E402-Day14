@@ -211,24 +211,41 @@ async def _call_tiebreaker(
     score_a: int, reason_a: str,
     score_b: int, reason_b: str,
 ) -> Dict[str, Any]:
-    """Meta-judge (GPT-4o-mini) to resolve conflicts when |score_a - score_b| > 1."""
+    """Meta-judge (GPT-4o-mini) to resolve conflicts when |score_a - score_b| > 1.
+
+    Calls the API directly instead of routing through _call_openai_judge.
+    _call_openai_judge applies a second .format() pass on its prompt_template,
+    which raises KeyError when judge reasons contain literal { } characters.
+    """
     prompt = TIE_BREAKER_PROMPT.format(
         question=question, ground_truth=ground_truth, answer=answer,
         score_a=score_a, reason_a=reason_a,
         score_b=score_b, reason_b=reason_b,
         diff=abs(score_a - score_b),
     )
-    result, _, _ = await _call_openai_judge(question, answer, ground_truth, prompt_template=prompt)
-    # The tie-breaker prompt has different keys — parse directly
+    t0 = time.perf_counter()
     try:
-        raw_result = result.get("reason", "")
-        # re-parse if tiebreaker → the result dict's score comes from the parsed JSON
+        response = await _openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            max_tokens=200,
+            response_format={"type": "json_object"},
+        )
+        latency_ms = (time.perf_counter() - t0) * 1000
+        usage = response.usage
+        in_tok = usage.prompt_tokens if usage else 0
+        out_tok = usage.completion_tokens if usage else 0
+        _cost_tracker.add("gpt-4o-mini", in_tok, out_tok, latency_ms)
+
+        raw = response.choices[0].message.content or "{}"
+        parsed = json.loads(raw)
         return {
-            "final_score": result.get("score", (score_a + score_b) // 2),
-            "ruling": raw_result,
+            "final_score": max(1, min(5, int(parsed.get("final_score", (score_a + score_b) // 2)))),
+            "ruling": parsed.get("ruling", ""),
         }
-    except Exception:
-        return {"final_score": (score_a + score_b) // 2, "ruling": "Tie-breaker failed, averaged."}
+    except Exception as e:
+        return {"final_score": (score_a + score_b) // 2, "ruling": f"Tie-breaker error: {e}"}
 
 
 # ─── Cohen's Kappa ────────────────────────────────────────────────────────────
