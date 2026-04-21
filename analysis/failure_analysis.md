@@ -1,31 +1,38 @@
-# Báo cáo Phân tích Thất bại (Failure Analysis Report)
+# Failure Analysis Report (Phân tích lỗi hệ thống)
 
-## 1. Tổng quan Benchmark
-- **Tổng số cases:** 50
-- **Tỉ lệ Pass/Fail:** X/Y
-- **Điểm RAGAS trung bình:**
-    - Faithfulness: 0.XX
-    - Relevancy: 0.XX
-- **Điểm LLM-Judge trung bình:** X.X / 5.0
+## 1. Mối liên hệ giữa Retrieval Quality và Answer Quality
 
-## 2. Phân nhóm lỗi (Failure Clustering)
-| Nhóm lỗi | Số lượng | Nguyên nhân dự kiến |
-|----------|----------|---------------------|
-| Hallucination | 5 | Retriever lấy sai context |
-| Incomplete | 3 | Prompt quá ngắn, không yêu cầu chi tiết |
-| Tone Mismatch | 2 | Agent trả lời quá suồng sã |
+Dựa trên dữ liệu chạy thật của tập Golden Dataset (66 cases), hệ thống thu được kết quả Correlation như sau:
+- **Hit Rate tổng thể rất thấp (5.0%)**, với 57/60 trường hợp (95%) rơi vào trạng thái "Zero-Hit" (ChromaDB không tìm được chunk đúng chứa nội dung gốc).
 
-## 3. Phân tích 5 Whys (Chọn 3 case tệ nhất)
+**Sự tương quan (Dựa trên mô hình chấm ảo hiện tại):**
+- **Hit=1 & Pass (3 cases):** Khi Retrieval hoạt động tốt, hệ thống luôn trả về câu trả lời đúng (Tỷ lệ = 100%).
+- **Hit=0 & Pass (57 cases):** Retrieval thất bại (không tìm đúng chunk chính xác) nhưng câu trả lời vẫn vượt qua mức điểm trung bình ảo. Tuy nhiên, trên thực tế, khi Hit Rate = 0, GPT bị thiếu ngữ cảnh (Context) trầm trọng và dễ dẫn đến tình trạng **Hallucination** (AI tự bịa câu trả lời theo kiến thức chung thay vì quy chế của trường).
 
-### Case #1: [Mô tả ngắn]
-1. **Symptom:** Agent trả lời sai về...
-2. **Why 1:** LLM không thấy thông tin trong context.
-3. **Why 2:** Vector DB không tìm thấy tài liệu liên quan nhất.
-4. **Why 3:** Chunking size quá lớn làm loãng thông tin quan trọng.
-5. **Why 4:** ...
-6. **Root Cause:** Chiến lược Chunking không phù hợp với dữ liệu bảng biểu.
+**Kết luận:** Điểm nghẽn (Bottleneck) chí mạng của hệ thống VinLex hiện tại nằm ở pha **Retrieval**, không phải Generation.
 
-## 4. Kế hoạch cải tiến (Action Plan)
-- [ ] Thay đổi Chunking strategy từ Fixed-size sang Semantic Chunking.
-- [ ] Cập nhật System Prompt để nhấn mạnh vào việc "Chỉ trả lời dựa trên context".
-- [ ] Thêm bước Reranking vào Pipeline.
+---
+
+## 2. Phân tích "5 Whys" (Root Cause Analysis cho lỗi Hit Rate 5%)
+
+Vấn đề: *Hệ thống tìm kiếm (Retrieval) thất bại trong việc tìm tài liệu đúng cho 95% câu hỏi.*
+
+1. **Tại sao hệ thống không tìm được tài liệu gốc?**
+   → Vì khi dùng Cosine Distance để đo độ tương đồng trong ChromaDB, Vector của câu hỏi bị lệch so với Vector của đoạn văn bản (Chunk) chứa câu trả lời.
+   
+2. **Tại sao Vector lại bị lệch xa (Distant) nhau như vậy?**
+   → Vì độ dài tài liệu của một Chunk là cực kỳ lớn. Cụ thể, xem trong `config.py`, hệ thống đang ép cấu hình `CHUNK_SIZE_CHARS = 1800` (dài bằng gần nửa trang giấy A4 chứa hàng chục ý khác nhau).
+   
+3. **Tại sao Chunk dài 1800 ký tự lại làm hỏng độ đo Cosine?**
+   → Vì khi nén một lượng văn bản khổng lồ (hỗn tạp nhiều chủ đề) vào một Embedding duy nhất, ý nghĩa của Vector đó bị "pha loãng" (hiện tượng Vector Dilution). 
+   
+4. **Tại sao Vector loãng lại gây ra tìm kiếm sai?**
+   → Trong khi Vector của tài liệu bị pha loãng, câu hỏi của Dataset lại cực kỳ ngắn và cụ thể (ví dụ: *"SGPA là gì?"*). Thuật toán embedding `text-embedding-3-small` sẽ khó tìm thấy sự đồng điệu (Cosine Similarity cao) giữa một ý nhỏ xíu và một đoạn văn khổng lồ.
+   
+5. **Root cause (Nguyên nhân gốc rễ) là gì?**
+   → **Chiến lược Chunking (Chunking Strategy) bị thiết kế sai kích thước.** 1800 ký tự là quá to cho công tác truy xuất thông tin cụ thể (Fact-QA). ChromaDB đã vô tình bốc nhầm các chunk có chứa một vài "từ khóa" trùng lặp ngẫu nhiên thay vì chunk chứa định nghĩa gốc. 
+
+### 💡 Đề xuất khắc phục (Action Item):
+Cần Rollback Agent lại và sửa lại tham số ở `config.py`:
+- Giảm `CHUNK_SIZE_CHARS` xuống khoảng `500 - 800` ký tự.
+- Xóa Data ChromaDB cũ, chạy lại file `ingest_pdfs.py` để nhúng (embed) lại dữ liệu. Hit Rate dự kiến sẽ tăng vọt lên mức 80%+.
