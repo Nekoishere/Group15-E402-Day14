@@ -74,9 +74,13 @@ _OUT_OF_SCOPE_EN = (
 class VinLexChatbot:
     """Main chatbot orchestrator implementing the decision loop."""
 
-    def __init__(self):
+    def __init__(self, generation_temperature: float = None, prompt_addon: str = None):
         self._vs = VectorStore(str(CHROMA_DIR))
-        self._rag = RAGPipeline(self._vs)
+        self._rag = RAGPipeline(
+            self._vs,
+            generation_temperature=generation_temperature,
+            prompt_addon=prompt_addon,
+        )
         self._client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def process(self, query: str, history: list[dict]) -> dict:

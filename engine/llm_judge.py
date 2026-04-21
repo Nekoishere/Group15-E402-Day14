@@ -3,7 +3,7 @@ Multi-Judge Consensus Engine – Day 14 AI Evaluation
 =====================================================
 Architecture:
   - Judge A : GPT-4o-mini  (OpenAI)
-  - Judge B : GPT-4o (OpenAI)
+  - Judge B : Gemini 2.0 Flash (Google)
 
 Features implemented:
   1. Concurrent dual-judge scoring (async)
@@ -34,7 +34,7 @@ _openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # ─── Pricing (USD per 1K tokens, approximate) ────────────────────────────────
 COST_TABLE = {
     "gpt-4o-mini": {"input": 0.000150, "output": 0.000600},   # per 1K tokens
-    "gpt-4o": {"input": 0.005000, "output": 0.015000},
+    "gemini-2.0-flash": {"input": 0.000100, "output": 0.000400},
 }
 
 # ─── Judge Prompt ─────────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ Respond ONLY with valid JSON, no extra text:
 TIE_BREAKER_PROMPT = """\
 Two AI judges produced conflicting scores for a chatbot evaluation:
   - Judge A (GPT-4o-mini) gave score {score_a} with reason: "{reason_a}"
-  - Judge B (GPT-4o) gave score {score_b} with reason: "{reason_b}"
+  - Judge B (Gemini-2.0-Flash) gave score {score_b} with reason: "{reason_b}"
 
 Difference = {diff} points. You are the Meta-Judge. Re-read the original evaluation:
 Question: {question}
@@ -97,26 +97,47 @@ class CostTracker:
             "latency_ms": round(latency_ms, 1),
         })
 
-    def summary(self) -> Dict:
+    def summary(self, eval_count: int = None) -> Dict:
         total_cost = sum(r["cost_usd"] for r in self._records)
         total_input = sum(r["input_tokens"] for r in self._records)
         total_output = sum(r["output_tokens"] for r in self._records)
+        total_latency_ms = sum(r["latency_ms"] for r in self._records)
         per_model: Dict[str, Dict] = {}
         for r in self._records:
             m = r["model"]
             if m not in per_model:
-                per_model[m] = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}
+                per_model[m] = {
+                    "calls": 0,
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "cost_usd": 0.0,
+                    "latency_ms_total": 0.0,
+                }
             per_model[m]["calls"] += 1
             per_model[m]["input_tokens"] += r["input_tokens"]
             per_model[m]["output_tokens"] += r["output_tokens"]
             per_model[m]["cost_usd"] += r["cost_usd"]
+            per_model[m]["latency_ms_total"] += r["latency_ms"]
+
+        for stats in per_model.values():
+            calls = max(stats["calls"], 1)
+            stats["cost_usd"] = round(stats["cost_usd"], 6)
+            stats["avg_input_tokens"] = round(stats["input_tokens"] / calls, 2)
+            stats["avg_output_tokens"] = round(stats["output_tokens"] / calls, 2)
+            stats["avg_latency_ms"] = round(stats["latency_ms_total"] / calls, 1)
+            stats["latency_ms_total"] = round(stats["latency_ms_total"], 1)
+
+        effective_eval_count = eval_count if eval_count is not None else len(self._records)
         return {
             "total_calls": len(self._records),
             "total_input_tokens": total_input,
             "total_output_tokens": total_output,
+            "total_tokens": total_input + total_output,
             "total_cost_usd": round(total_cost, 6),
-            "cost_per_eval_usd": round(total_cost / max(len(self._records), 1), 6),
+            "cost_per_eval_usd": round(total_cost / max(effective_eval_count, 1), 6),
+            "avg_latency_ms_per_call": round(total_latency_ms / max(len(self._records), 1), 1),
             "per_model": per_model,
+            "records": list(self._records),
         }
 
 
@@ -164,7 +185,49 @@ async def _call_openai_judge(
             out_tok,
         )
     except Exception as e:
-        return {"model": model, "score": 3, "reason": f"Error: {e}", "latency_ms": 0}, 0, 0
+        return {"model": "gpt-4o-mini", "score": 3, "reason": f"Error: {e}", "latency_ms": 0}, 0, 0
+
+
+async def _call_gemini_judge(
+    question: str, answer: str, ground_truth: str
+) -> Tuple[Dict[str, Any], int, int]:
+    """Call Gemini 2.5 Flash judge. Returns (result_dict, input_tokens, output_tokens)."""
+    prompt = JUDGE_PROMPT.format(
+        question=question, ground_truth=ground_truth, answer=answer
+    )
+    t0 = time.perf_counter()
+    try:
+        model = genai.GenerativeModel(
+            model_name="gemini-2.0-flash",
+            generation_config=genai.types.GenerationConfig(
+                temperature=0,
+                max_output_tokens=200,
+                response_mime_type="application/json",
+            ),
+        )
+        response = await asyncio.to_thread(model.generate_content, prompt)
+        latency_ms = (time.perf_counter() - t0) * 1000
+
+        # Token counts from usage_metadata
+        meta = getattr(response, "usage_metadata", None)
+        in_tok = getattr(meta, "prompt_token_count", 0) or 0
+        out_tok = getattr(meta, "candidates_token_count", 0) or 0
+        _cost_tracker.add("gemini-2.0-flash", in_tok, out_tok, latency_ms)
+
+        raw = response.text or "{}"
+        parsed = json.loads(raw)
+        return (
+            {
+                "model": "gemini-2.0-flash",
+                "score": max(1, min(5, int(parsed.get("score", 3)))),
+                "reason": parsed.get("reason", ""),
+                "latency_ms": round(latency_ms, 1),
+            },
+            in_tok,
+            out_tok,
+        )
+    except Exception as e:
+        return {"model": "gemini-2.0-flash", "score": 3, "reason": f"Error: {e}", "latency_ms": 0}, 0, 0
 
 
 async def _call_tiebreaker(
@@ -172,24 +235,41 @@ async def _call_tiebreaker(
     score_a: int, reason_a: str,
     score_b: int, reason_b: str,
 ) -> Dict[str, Any]:
-    """Meta-judge (GPT-4o-mini) to resolve conflicts when |score_a - score_b| > 1."""
+    """Meta-judge (GPT-4o-mini) to resolve conflicts when |score_a - score_b| > 1.
+
+    Calls the API directly instead of routing through _call_openai_judge.
+    _call_openai_judge applies a second .format() pass on its prompt_template,
+    which raises KeyError when judge reasons contain literal { } characters.
+    """
     prompt = TIE_BREAKER_PROMPT.format(
         question=question, ground_truth=ground_truth, answer=answer,
         score_a=score_a, reason_a=reason_a,
         score_b=score_b, reason_b=reason_b,
         diff=abs(score_a - score_b),
     )
-    result, _, _ = await _call_openai_judge(question, answer, ground_truth, preformatted_prompt=prompt, model="gpt-4o-mini")
-    # The tie-breaker prompt has different keys — parse directly
+    t0 = time.perf_counter()
     try:
-        raw_result = result.get("reason", "")
-        # re-parse if tiebreaker → the result dict's score comes from the parsed JSON
+        response = await _openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            max_tokens=200,
+            response_format={"type": "json_object"},
+        )
+        latency_ms = (time.perf_counter() - t0) * 1000
+        usage = response.usage
+        in_tok = usage.prompt_tokens if usage else 0
+        out_tok = usage.completion_tokens if usage else 0
+        _cost_tracker.add("gpt-4o-mini", in_tok, out_tok, latency_ms)
+
+        raw = response.choices[0].message.content or "{}"
+        parsed = json.loads(raw)
         return {
-            "final_score": result.get("score", (score_a + score_b) // 2),
-            "ruling": raw_result,
+            "final_score": max(1, min(5, int(parsed.get("final_score", (score_a + score_b) // 2)))),
+            "ruling": parsed.get("ruling", ""),
         }
-    except Exception:
-        return {"final_score": (score_a + score_b) // 2, "ruling": "Tie-breaker failed, averaged."}
+    except Exception as e:
+        return {"final_score": (score_a + score_b) // 2, "ruling": f"Tie-breaker error: {e}"}
 
 
 # ─── Cohen's Kappa ────────────────────────────────────────────────────────────
@@ -351,6 +431,12 @@ class LLMJudge:
         self._batch_scores_b.clear()
 
     @staticmethod
-    def get_cost_summary() -> Dict:
+    def get_cost_summary(eval_count: int = None) -> Dict:
         """Return cost and token usage summary for the entire run."""
-        return _cost_tracker.summary()
+        return _cost_tracker.summary(eval_count=eval_count)
+
+    @classmethod
+    def reset_cost_tracker(cls):
+        """Reset the global cost tracker before a new benchmark run."""
+        global _cost_tracker
+        _cost_tracker = CostTracker()

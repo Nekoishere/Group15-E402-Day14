@@ -59,9 +59,17 @@ _NO_CONTEXT_EN = (
 class RAGPipeline:
     """Retrieval-Augmented Generation pipeline for academic regulation Q&A."""
 
-    def __init__(self, vector_store: VectorStore):
+    def __init__(
+        self,
+        vector_store: VectorStore,
+        generation_temperature: float = None,
+        prompt_addon: str = None,
+    ):
         self._vs = vector_store
         self._client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # Config overrides — None means use the per-call defaults
+        self._generation_temperature = generation_temperature
+        self._prompt_addon = prompt_addon
 
     def retrieve(self, query: str) -> list[dict]:
         """
@@ -86,7 +94,10 @@ class RAGPipeline:
         """
         # Build language-specific system prompt — language rule comes FIRST
         lang_rule = _LANG_RULE_EN if language == "en" else _LANG_RULE_VI
-        system_prompt = f"{lang_rule}\n\n{_BASE_SYSTEM_PROMPT}"
+        base = _BASE_SYSTEM_PROMPT
+        if self._prompt_addon:
+            base = f"{base}\n\n{self._prompt_addon}"
+        system_prompt = f"{lang_rule}\n\n{base}"
 
         if not chunks:
             # No RAG context — still make LLM call so it can use history and
@@ -104,10 +115,11 @@ class RAGPipeline:
             messages.append({"role": "user", "content": f"{query}\n\n{no_context_note}"})
 
             try:
+                temp_no_ctx = self._generation_temperature if self._generation_temperature is not None else 0.3
                 response = self._client.chat.completions.create(
                     model=CHAT_MODEL,
                     messages=messages,
-                    temperature=0.3,
+                    temperature=temp_no_ctx,
                     max_tokens=600,
                 )
                 answer = response.choices[0].message.content or (
@@ -131,10 +143,11 @@ class RAGPipeline:
         user_content = f"{query}\n\n{context_block}"
         messages.append({"role": "user", "content": user_content})
 
+        temp_rag = self._generation_temperature if self._generation_temperature is not None else 0.2
         response = self._client.chat.completions.create(
             model=CHAT_MODEL,
             messages=messages,
-            temperature=0.2,
+            temperature=temp_rag,
             max_tokens=1500,
         )
 
